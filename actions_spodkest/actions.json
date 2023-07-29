@@ -1,7 +1,7 @@
 {
-    "action1": {
+    "create-spodkest": {
         "description": {
-            "EN": "What does the action do?"
+            "EN": "Create podcast from some pdf files"
         },
         "category": "git",
         "args": {
@@ -13,17 +13,33 @@
                 "required": true,
                 "default": "undefined"
             },
-            "arg1": {
+            "user": {
                 "description": {
-                    "EN": "What info does arg1 expect?"
+                    "EN": "Owner of the podcast"
+                },
+                "type": "string",
+                "required": false,
+                "default": "undefined"
+            },
+            "name": {
+                "description": {
+                    "EN": "Podcast name, use only letters and numbers"
                 },
                 "type": "string",
                 "required": true,
                 "default": "undefined"
             },
-            "arg2": {
+            "requirements": {
                 "description": {
-                    "EN": "What does arg2 expect?"
+                    "EN": "Podcast specifications"
+                },
+                "type": "string",
+                "required": false,
+                "default": "undefined"
+            },
+            "inputFiles": {
+                "description": {
+                    "EN": "Url of the files to be used as base for the podcast, separated by commas"
                 },
                 "type": "string",
                 "required": true,
@@ -32,9 +48,9 @@
         },
         "response": {
             "payload": {
-                "field1": {
+                "url": {
                     "description": {
-                        "EN": "What info does field1 convey?"
+                        "EN": "Url of the mp3 file containing the podcast"
                     },
                     "type": "string"
                 }
@@ -46,6 +62,6 @@
                 "type": "string"
             }
         },
-        "endpoint": "https://actions-git-ai32xjq4va-ew.a.run.app/<action>"
+        "endpoint": "https://actions-git-ai32xjq4va-ew.a.run.app/create"
     }
 }

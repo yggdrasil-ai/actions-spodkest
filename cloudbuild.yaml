@@ -14,13 +14,14 @@ steps:
   - gcloud
   - functions
   - deploy
-  - actions-[domain]
+  - actions-spodkest
   - --gen2
+  - --set-secrets=OPENAI_KEY=$_OPENAI_KEY,ELEVENLABS_KEY=$_ELEVENLABS_KEY
   - --region=europe-west1
-  - --source=./actions_[domain]
+  - --source=./actions_spodkest
   - --trigger-http
   - --runtime=python310
-  - --entry-point=actions_[domain]
-  - --service-account=actions-processor-cf@yggdrasil-ai-hermod.iam.gserviceaccount.com
-  - --set-env-vars=PROJECT_ID=$PROJECT_ID
+  - --entry-point=actions_spodkest
+  - --service-account=spodkest-processor-cf@yggdrasil-ai-hermod.iam.gserviceaccount.com
+  - --set-env-vars=PROJECT_ID=$PROJECT_ID,SPODKEST_FOLDER=$_SPODKEST_FOLDER,VOICE_INTRODUCTION=$_VOICE_INTRODUCTION,VOICE_SECTION=$_VOICE_SECTION,VOICE_CLOSURE=$_VOICE_CLOSURE
   - --project=$PROJECT_ID
