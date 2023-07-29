@@ -9,7 +9,7 @@ import requests
 from pdfminer.high_level import extract_text
 import openai
 from io import BytesIO
-from elevenlabs import generate
+from elevenlabs import generate, set_api_key
 from nltk.tokenize import word_tokenize
 import nltk
 nltk.download('punkt')
@@ -23,6 +23,7 @@ VOICE_CLOSURE = os.environ.get('VOICE_CLOSURE')
 
 APP = Flask("internal")
 openai.api_key = os.environ.get('OPENAI_KEY')
+set_api_key(ELEVENLABS_API_KEY)
 
 def generate_answer(prompt, message_list, model, attempt=0):
         """
@@ -246,10 +247,31 @@ def generate_podcast(workspace, introduction, sections, closure):
     def generate_audio(voice, text, output_file):
         fs = gcsfs.GCSFileSystem(project=PROJECT_ID)
         logging.info(f"Generating audio: {text}. With voice: {voice}")
-        audio = generate(text=text, voice=voice, api_key=ELEVENLABS_API_KEY)
+        #audio = generate(text=text, voice=voice, verify=False)
+        CHUNK_SIZE = 1024
+        url = f"https://api.elevenlabs.io/v1/text-to-speech/{voice}"
+
+        headers = {
+            "Accept": "audio/mpeg",
+            "Content-Type": "application/json",
+            "xi-api-key": ELEVENLABS_API_KEY
+        }
+
+        data = {
+            "text": "Hi! My name is Bella, nice to meet you!",
+            "model_id": "eleven_monolingual_v1",
+            "voice_settings": {
+                "stability": 0.5,
+                "similarity_boost": 0.5
+            }
+        }
+
+        response = requests.post(url, json=data, headers=headers, verify=False)
         logging.info("Saving audio")
         with fs.open(output_file, 'wb') as f:
-            f.write(audio)
+            for chunk in response.iter_content(chunk_size=CHUNK_SIZE):
+                if chunk:
+                    f.write(chunk)
         return output_file  
     
     def combine_audios(audio_files, destiny_name):
