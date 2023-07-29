@@ -1,0 +1,26 @@
+steps:
+- name: 'python:3.10'
+  args:
+  - pip
+  - install
+  - firebase-admin
+  - --user
+- name: 'python:3.10'
+  args:
+  - python
+  - upload_commands.py
+- name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+  args:
+  - gcloud
+  - functions
+  - deploy
+  - actions-[domain]
+  - --gen2
+  - --region=europe-west1
+  - --source=./actions_[domain]
+  - --trigger-http
+  - --runtime=python310
+  - --entry-point=actions_[domain]
+  - --service-account=actions-processor-cf@yggdrasil-ai-hermod.iam.gserviceaccount.com
+  - --set-env-vars=PROJECT_ID=$PROJECT_ID
+  - --project=$PROJECT_ID

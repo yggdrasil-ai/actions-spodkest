@@ -1,0 +1,51 @@
+{
+    "action1": {
+        "description": {
+            "EN": "What does the action do?"
+        },
+        "category": "git",
+        "args": {
+            "author": {
+                "description": {
+                    "EN": "The author of the command"
+                },
+                "type": "string",
+                "required": true,
+                "default": "undefined"
+            },
+            "arg1": {
+                "description": {
+                    "EN": "What info does arg1 expect?"
+                },
+                "type": "string",
+                "required": true,
+                "default": "undefined"
+            },
+            "arg2": {
+                "description": {
+                    "EN": "What does arg2 expect?"
+                },
+                "type": "string",
+                "required": true,
+                "default": "undefined"
+            }
+        },
+        "response": {
+            "payload": {
+                "field1": {
+                    "description": {
+                        "EN": "What info does field1 convey?"
+                    },
+                    "type": "string"
+                }
+            },
+            "responseMessage": {
+                "description": {
+                    "EN": "Message describing action result"
+                },
+                "type": "string"
+            }
+        },
+        "endpoint": "https://actions-git-ai32xjq4va-ew.a.run.app/<action>"
+    }
+}
