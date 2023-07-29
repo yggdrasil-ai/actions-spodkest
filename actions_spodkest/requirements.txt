@@ -6,3 +6,4 @@ pdfminer.six
 nltk
 openai
 gcsfs
+elevenlabs

@@ -9,6 +9,7 @@ import requests
 from pdfminer.high_level import extract_text
 import openai
 from io import BytesIO
+from elevenlabs import generate
 from nltk.tokenize import word_tokenize
 import nltk
 nltk.download('punkt')
@@ -244,31 +245,11 @@ def generate_podcast(workspace, introduction, sections, closure):
 
     def generate_audio(voice, text, output_file):
         fs = gcsfs.GCSFileSystem(project=PROJECT_ID)
-        CHUNK_SIZE = 1024
-        url = f"https://api.elevenlabs.io/v1/text-to-speech/{voice}"
-
-        headers = {
-            "Accept": "audio/mpeg",
-            "Content-Type": "application/json",
-            "xi-api-key": f"{ELEVENLABS_API_KEY}"
-        }
-
-        data = {
-            "text": f"{text}",
-            "model_id": "eleven_monolingual_v1",
-            "voice_settings": {
-                "stability": 0.5,
-                "similarity_boost": 0.5
-            }
-        }
-        
-        logging.info(f"Requesting {url} with data {data} and headers {headers}")
-        response = requests.post(url, json=data, headers=headers)
-        logging.info(f"Saving audio")
+        logging.info(f"Generating audio: {text}. With voice: {voice}")
+        audio = generate(text=text, voice=voice, api_key=ELEVENLABS_API_KEY)
+        logging.info("Saving audio")
         with fs.open(output_file, 'wb') as f:
-            for chunk in response.iter_content(chunk_size=CHUNK_SIZE):
-                if chunk:
-                    f.write(chunk)
+            f.write(audio)
         return output_file  
     
     def combine_audios(audio_files, destiny_name):
