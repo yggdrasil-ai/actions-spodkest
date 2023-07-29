@@ -20,6 +20,7 @@ ELEVENLABS_API_KEY = os.environ.get('ELEVENLABS_KEY')
 VOICE_INTRODUCTION = os.environ.get('VOICE_INTRODUCTION')
 VOICE_SECTION = os.environ.get('VOICE_SECTION')
 VOICE_CLOSURE = os.environ.get('VOICE_CLOSURE')
+SINTONIA_AUDIO = "gs://yggdrasil-ai-hermod-public/sintonia.mp3"
 
 APP = Flask("internal")
 openai.api_key = os.environ.get('OPENAI_KEY')
@@ -258,7 +259,7 @@ def generate_podcast(workspace, introduction, sections, closure):
         }
 
         data = {
-            "text": "Hi! My name is Bella, nice to meet you!",
+            "text": text,
             "model_id": "eleven_monolingual_v1",
             "voice_settings": {
                 "stability": 0.5,
@@ -276,38 +277,13 @@ def generate_podcast(workspace, introduction, sections, closure):
     
     def combine_audios(audio_files, destiny_name):
         fs = gcsfs.GCSFileSystem(project=PROJECT_ID)
-        from pydub import AudioSegment
-        downloaded_files = []
+        combined_audio = b''
         for file in audio_files:
-            filename = file.split('/')[-1]
-            with fs.open(file, 'rb') as origin_file:
-                with open(filename, 'wb') as destiny_file:
-                    destiny_file.write(origin_file.read())
-            downloaded_files += [filename]
-        # Load your 'sintonia' mp3
-        sintonia = AudioSegment.from_mp3("sintonia.mp3")
-
-        # Initialize an empty audio segment
-        combined = AudioSegment.empty()
-
-        # Loop over your mp3 files
-        for mp3_file in downloaded_files:
-            # Load the current mp3 file
-            sound = AudioSegment.from_mp3(mp3_file)
-
-            # Append the current sound and the 'sintonia' to the combined audio
-            combined += sound
-            combined += sintonia
-
-        # The final 'sintonia' is not needed, so we remove it
-        combined = combined[:-len(sintonia)]
-
-        # Export the combined audio
-        combined.export("combined.mp3", format='mp3')
+            with fs.open(file, 'rb') as audio_file:
+                combined_audio += audio_file.read()
 
         with fs.open(destiny_name, 'wb') as destiny_file:
-            with open("combined.mp3") as origin_file:
-                destiny_file.write(origin_file.read())
+            destiny_file.write(combined_audio)
         return destiny_name
 
 
@@ -321,7 +297,9 @@ def generate_podcast(workspace, introduction, sections, closure):
         section_audios += [section_audio]
     closure_audio = generate_audio(VOICE_CLOSURE, closure, f'{workspace}/closure.mp3')
     audios = [introduction_audio]
+    audios += [SINTONIA_AUDIO]
     audios += section_audios
+    audios += [SINTONIA_AUDIO]
     audios += [closure_audio]
     logging.info("Combining audios")
     podcast = combine_audios(audios, f'{workspace}/podcast.mp3')
