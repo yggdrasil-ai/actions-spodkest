@@ -8,6 +8,7 @@ import json
 import requests
 from pdfminer.high_level import extract_text
 import openai
+from io import BytesIO
 from nltk.tokenize import word_tokenize
 import nltk
 nltk.download('punkt')
@@ -20,7 +21,6 @@ VOICE_SECTION = os.environ.get('VOICE_SECTION')
 VOICE_CLOSURE = os.environ.get('VOICE_CLOSURE')
 
 APP = Flask("internal")
-fs = gcsfs.GCSFileSystem()
 openai.api_key = os.environ.get('OPENAI_KEY')
 
 def generate_answer(prompt, message_list, model, attempt=0):
@@ -51,21 +51,24 @@ def generate_answer(prompt, message_list, model, attempt=0):
         return response
 
 def read_file(file):
+    fs = gcsfs.GCSFileSystem(project=PROJECT_ID)
     with fs.open(file, 'r') as f:
         content = f.read()
     return content
 
 def read_bytes(file):
+    fs = gcsfs.GCSFileSystem(project=PROJECT_ID)
     with fs.open(file, 'rb') as f:
         content = f.read()
     return content
 
 def write_to_file(file, content):
-    with fs.open(file, "w+") as file_:
-        file_.seek(0) # set the pointer to beginning of file (truncate any existing data
+    fs = gcsfs.GCSFileSystem(project=PROJECT_ID)
+    with fs.open(file, "w") as file_:
         file_.write(content)
 
 def download_file(url, destiny_file):
+    fs = gcsfs.GCSFileSystem(project=PROJECT_ID)
     with requests.get(url, stream=True) as r:
         r.raise_for_status()
         with fs.open(destiny_file, 'wb') as f:
@@ -108,7 +111,6 @@ def summarizer(text, max_tokens=2000):
     Summary and original statements must always provide different information, summary shouldn't be deductible from original statements.
     Your answer should have a #summary# and an #original statements# section"""
         
-
     tokens = word_tokenize(text)
     chunks = [tokens[i:i + 2000] for i in range(0, len(tokens), max_tokens)]
 
@@ -167,6 +169,7 @@ def generate_closure(podcast_plan, requirements):
 
 
 def process_input_files(workspace, input_files=None):
+    fs = gcsfs.GCSFileSystem(project=PROJECT_ID)
     if not input_files:
         # Get list of files in {workspace}/input_files
         input_files = fs.glob(f'{workspace}/input_files/')
@@ -174,7 +177,9 @@ def process_input_files(workspace, input_files=None):
     for file in input_files:
         # Extract text
         print('Processing:', file)
-        extracted_text = extract_text(read_bytes(file))
+        fp = BytesIO(read_bytes(file))
+        extracted_text = extract_text(fp)
+        print('Summarizing extracted text')
         summarized_text = summarizer(extracted_text)
         filename = file.split('/')[-1]
         summaries += [summarized_text]
@@ -193,6 +198,7 @@ def generate_skeleton(workspace, requirements=None, summaries=None):
     ```
     The podcast must comply with the following requirements: {podcast_requirements}
     """
+    fs = gcsfs.GCSFileSystem(project=PROJECT_ID)
 
     if not requirements:
         requirements = read_file(f'{workspace}/requirements.txt')
@@ -227,6 +233,7 @@ def generate_sections(workspace, sections = None, requirements = None):
     return full_sections
 
 def generate_podcast(workspace, introduction, sections, closure):
+    fs = gcsfs.GCSFileSystem(project=PROJECT_ID)
     if not introduction:
         introduction = read_file(f'{workspace}/introduction.txt')
     if not sections:
@@ -236,17 +243,18 @@ def generate_podcast(workspace, introduction, sections, closure):
         closure = read_file(f'{workspace}/closure.txt')
 
     def generate_audio(voice, text, output_file):
+        fs = gcsfs.GCSFileSystem(project=PROJECT_ID)
         CHUNK_SIZE = 1024
         url = f"https://api.elevenlabs.io/v1/text-to-speech/{voice}"
 
         headers = {
             "Accept": "audio/mpeg",
             "Content-Type": "application/json",
-            "xi-api-key": ELEVENLABS_API_KEY
+            "xi-api-key": f"{ELEVENLABS_API_KEY}"
         }
 
         data = {
-            "text": text,
+            "text": f"{text}",
             "model_id": "eleven_monolingual_v1",
             "voice_settings": {
                 "stability": 0.5,
@@ -254,7 +262,9 @@ def generate_podcast(workspace, introduction, sections, closure):
             }
         }
         
+        logging.info(f"Requesting {url} with data {data} and headers {headers}")
         response = requests.post(url, json=data, headers=headers)
+        logging.info(f"Saving audio")
         with fs.open(output_file, 'wb') as f:
             for chunk in response.iter_content(chunk_size=CHUNK_SIZE):
                 if chunk:
@@ -262,6 +272,7 @@ def generate_podcast(workspace, introduction, sections, closure):
         return output_file  
     
     def combine_audios(audio_files, destiny_name):
+        fs = gcsfs.GCSFileSystem(project=PROJECT_ID)
         from pydub import AudioSegment
         downloaded_files = []
         for file in audio_files:
@@ -309,6 +320,7 @@ def generate_podcast(workspace, introduction, sections, closure):
     audios = [introduction_audio]
     audios += section_audios
     audios += [closure_audio]
+    logging.info("Combining audios")
     podcast = combine_audios(audios, f'{workspace}/podcast.mp3')
     return podcast
 
@@ -336,14 +348,18 @@ def create_spodkest():
 
     # Ensure workspace setup
     assigned_folder = f"{SPODKEST_FOLDER}/{name}"
+    logging.info(f"Ensuring {assigned_folder} setup")
     if requirements == "undefined":
+        logging.info("Reading requirements")
         requirements = read_file(f"{assigned_folder}/requirements.txt")
     else:
+        logging.info("Writing requirements")
         write_to_file(f"{assigned_folder}/requirements.txt", requirements)
     owned_files = []
     if len(files) > 0 and files[0]!="undefined":
         for file in [x.strip() for x in files]:
             filename = file.split('/')[-1]
+            logging.info(f"Downloading {filename}")
             saved_file = download_file(file, f'{assigned_folder}/input_files/{filename}')
             owned_files += [saved_file]
     else:
@@ -360,15 +376,19 @@ def create_spodkest():
     
 
     # Process input files
+    logging.info("Summarizing")
     summaries = process_input_files(assigned_folder, owned_files)
 
     # Generate podcast skeleton
+    logging.info("Generating skeleton")
     introduction, sections, closure = generate_skeleton(assigned_folder, requirements, summaries)
-
+    
     # Generate sections
+    logging.info("Extending sections")
     full_sections = generate_sections(assigned_folder, sections, requirements)
 
     # Generate podcast
+    logging.info("Generating podcast")
     podcast = generate_podcast(assigned_folder, introduction, full_sections, closure)
 
     response = APP.response_class(
