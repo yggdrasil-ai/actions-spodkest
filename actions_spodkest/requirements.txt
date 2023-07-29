@@ -7,3 +7,6 @@ nltk
 openai
 gcsfs
 elevenlabs
+ndg-httpsclient
+pyopenssl
+pyasn1
