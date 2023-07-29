@@ -5,3 +5,4 @@ pydub
 pdfminer.six
 nltk
 openai
+gcsfs
