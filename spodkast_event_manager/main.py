@@ -320,7 +320,7 @@ def generate_podcast(workspace, introduction, sections, closure):
 
 def _produce_spodkast(author, spodkast_id, payload):
     logging.info(f"Received request from {author} to produce podcast {spodkast_id}: {payload}")
-    if payload["author"] == "#spokeAgent#":
+    if author == "#spokeAgent#":
         author = payload["conversationId"].split(".")[0]
     user = payload["user"] if payload["user"]!="undefined" else author
     assigned_folder = SPODKAST_ROUTE.format(owner=user, id=spodkast_id)
