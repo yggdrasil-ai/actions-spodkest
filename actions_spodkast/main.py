@@ -7,7 +7,6 @@ import os
 import gcsfs
 import json
 import requests
-import openai
 import datetime
 
 PROJECT_ID = os.environ.get('PROJECT_ID')
