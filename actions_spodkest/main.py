@@ -316,7 +316,7 @@ def unknown_operation():
     return response
 
 @APP.route('/extend', methods=['POST', ])
-def generate_sections():
+def extend_sections():
     logging.info("Received request to extend sections: {}".format(request))
     request_json = json.loads(request.data)
     author = request_json["author"]
