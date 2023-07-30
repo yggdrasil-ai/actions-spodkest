@@ -1,9 +1,5 @@
 functions-framework
 requests
 flask
-pydub
-pdfminer.six
-nltk
-openai
 gcsfs
 google-cloud-pubsub
