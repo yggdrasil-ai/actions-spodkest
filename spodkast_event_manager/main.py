@@ -216,7 +216,7 @@ def _create_spodkast(author, spodkast_id, payload):
 
 # Cloud function triggered from a message on a Cloud Pub/Sub topic
 @functions_framework.cloud_event
-def conversation_event_manager(cloud_event):
+def spodkast_event_manager(cloud_event):
     """
     Cloud function triggered from a message on a Cloud Pub/Sub topic
     """
