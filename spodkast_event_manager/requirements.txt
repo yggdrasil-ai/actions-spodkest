@@ -1,0 +1,7 @@
+functions-framework
+requests
+flask
+pydub
+google-cloud-pubsub
+openai
+gcsfs

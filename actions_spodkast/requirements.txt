@@ -6,7 +6,4 @@ pdfminer.six
 nltk
 openai
 gcsfs
-elevenlabs
-ndg-httpsclient
-pyopenssl
-pyasn1
+google-cloud-pubsub

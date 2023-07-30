@@ -1,5 +1,5 @@
 {
-    "create-spodkest": {
+    "create-spodkast": {
         "description": {
             "EN": "Create podcast from some pdf files"
         },
@@ -56,15 +56,21 @@
         },
         "response": {
             "payload": {
-                "url": {
-                    "description": {
-                        "EN": "Url of the mp3 file containing the podcast. Returned only in fast mode"
-                    },
-                    "type": "string"
-                },
                 "workspace": {
                     "description": {
-                        "EN": "Workspace url where all generated resources are stored. Returned only in slow mode"
+                        "EN": "Workspace url where all generated resources are stored"
+                    },
+                    "type": "string"
+                },
+                "id": {
+                    "description": {
+                        "EN": "Id of the spodkast created"
+                    },
+                    "type": "string"
+                },
+                "skeleton": {
+                    "description": {
+                        "EN": "JSON with the introduction, sections and closure"
                     },
                     "type": "string"
                 }
@@ -76,11 +82,74 @@
                 "type": "string"
             }
         },
-        "endpoint": "https://actions-spodkest-ai32xjq4va-ew.a.run.app/create"
+        "endpoint": "https://actions-spodkast-ai32xjq4va-ew.a.run.app/create"
     },
-    "extend-spodkest": {
+    "extend-spodkast": {
         "description": {
-            "EN": "Generate sections for an already existing podcast. MUST BE EXECUTED AFTER create-spodkest WITH slow=1."
+            "EN": "Generate sections for an already existing podcast. MUST BE EXECUTED AFTER create-spodkast WITH slow=1."
+        },
+        "category": "advancedActions",
+        "args": {
+            "author": {
+                "description": {
+                    "EN": "The author of the command"
+                },
+                "type": "string",
+                "required": true,
+                "default": "undefined"
+            },
+            "user": {
+                "description": {
+                    "EN": "Owner of the podcast"
+                },
+                "type": "string",
+                "required": false,
+                "default": "undefined"
+            },
+            "name": {
+                "description": {
+                    "EN": "Podcast name, use only letters and numbers"
+                },
+                "type": "string",
+                "required": true,
+                "default": "undefined"
+            },
+            "slow": {
+                "description": {
+                    "EN": "1 to go step by step, 0 to instantly generate podcast"
+                },
+                "type": "string",
+                "required": false,
+                "default": "0"
+            }
+        },
+        "response": {
+            "payload": {
+                "workspace": {
+                    "description": {
+                        "EN": "Workspace url where all generated resources are stored"
+                    },
+                    "type": "string"
+                },
+                "id": {
+                    "description": {
+                        "EN": "Id of the spodkast created"
+                    },
+                    "type": "string"
+                }
+            },
+            "responseMessage": {
+                "description": {
+                    "EN": "Message describing action result"
+                },
+                "type": "string"
+            }
+        },
+        "endpoint": "https://actions-spodkast-ai32xjq4va-ew.a.run.app/extend"
+    },
+    "produce-spodkast": {
+        "description": {
+            "EN": "Produce an already generated podcast. MUST BE EXECUTED AFTER extend-spodkast"
         },
         "category": "advancedActions",
         "args": {
@@ -111,58 +180,15 @@
         },
         "response": {
             "payload": {
-                "sections": {
+                "workspace": {
                     "description": {
-                        "EN": "List of generated sections"
+                        "EN": "Workspace url where all generated resources are stored"
                     },
-                    "type": "array"
-                }
-            },
-            "responseMessage": {
-                "description": {
-                    "EN": "Message describing action result"
+                    "type": "string"
                 },
-                "type": "string"
-            }
-        },
-        "endpoint": "https://actions-spodkest-ai32xjq4va-ew.a.run.app/extend"
-    },
-    "produce-spodkest": {
-        "description": {
-            "EN": "Produce an already generated podcast. MUST BE EXECUTED AFTER extend-spodkest"
-        },
-        "category": "advancedActions",
-        "args": {
-            "author": {
-                "description": {
-                    "EN": "The author of the command"
-                },
-                "type": "string",
-                "required": true,
-                "default": "undefined"
-            },
-            "user": {
-                "description": {
-                    "EN": "Owner of the podcast"
-                },
-                "type": "string",
-                "required": false,
-                "default": "undefined"
-            },
-            "name": {
-                "description": {
-                    "EN": "Podcast name, use only letters and numbers"
-                },
-                "type": "string",
-                "required": true,
-                "default": "undefined"
-            }
-        },
-        "response": {
-            "payload": {
-                "url": {
+                "id": {
                     "description": {
-                        "EN": "Url of the mp3 file containing the podcast. Returned only in fast mode"
+                        "EN": "Id of the spodkast created"
                     },
                     "type": "string"
                 }
@@ -174,6 +200,6 @@
                 "type": "string"
             }
         },
-        "endpoint": "https://actions-spodkest-ai32xjq4va-ew.a.run.app/produce"
+        "endpoint": "https://actions-spodkast-ai32xjq4va-ew.a.run.app/produce"
     }
 }

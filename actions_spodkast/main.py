@@ -2,6 +2,7 @@ from flask import Flask, request
 import functions_framework
 import logging
 logging.basicConfig(level=logging.INFO)
+from google.cloud import pubsub_v1
 import os
 import gcsfs
 import json
@@ -9,22 +10,42 @@ import requests
 from pdfminer.high_level import extract_text
 import openai
 from io import BytesIO
-from elevenlabs import generate, set_api_key
+import datetime
 from nltk.tokenize import word_tokenize
 import nltk
 nltk.download('punkt')
 
 PROJECT_ID = os.environ.get('PROJECT_ID')
-SPODKEST_FOLDER = os.environ.get('SPODKEST_FOLDER')
-ELEVENLABS_API_KEY = os.environ.get('ELEVENLABS_KEY')
-VOICE_INTRODUCTION = os.environ.get('VOICE_INTRODUCTION')
-VOICE_SECTION = os.environ.get('VOICE_SECTION')
-VOICE_CLOSURE = os.environ.get('VOICE_CLOSURE')
-SINTONIA_AUDIO = "gs://yggdrasil-ai-hermod-public/sintonia.mp3"
+EVENT_BUS = os.environ.get('EVENT_BUS')
+SPODKAST_ROUTE = "gs://yggdrasil-ai-hermod-spodkast/{owner}/{id}"
+ENTITY = "spodkast"
 
 APP = Flask("internal")
 openai.api_key = os.environ.get('OPENAI_KEY')
-set_api_key(ELEVENLABS_API_KEY)
+
+def publish_message(author:str, operation:str, entity_id:str, payload:str):
+    """
+    This function publishes the message.
+    Parameters:
+        conversation_id: The ID of the conversation
+        author: Who is publishing the message (user_id)
+        message: The message to publish
+    """
+    message = {
+        "author": author,
+        "entity": ENTITY,
+        "entityId": entity_id,
+        "operation": operation,
+        "timestamp": datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+        "payload": payload
+    }
+    message_json = json.dumps(message).encode("utf-8")
+    print("Publishing ", message_json)
+    publisher = pubsub_v1.PublisherClient()
+    topic_path = publisher.topic_path(PROJECT_ID, EVENT_BUS)
+    publish_future = publisher.publish(topic_path,
+                                        data=message_json)
+    publish_future.result()
 
 def generate_answer(prompt, message_list, model, attempt=0):
         """
@@ -156,21 +177,6 @@ def parse_sections(text):
 
     return sections
 
-def generate_introduction(podcast_plan, requirements):
-    GENERATE_INTRODUCTION_PROMPT = """You are a podcast speaker. You should write the introduction of a podcast which skeleton will be provided by the user.
-    Keep it really short and interesting. You don't have to include all data, just to present the podcast, your colleagues will do the different sections after you.
-    Keep it short. You should comply with this requirements: {podcast_requirements}"""
-    return generate_answer(GENERATE_INTRODUCTION_PROMPT.format(podcast_requirements=requirements), [podcast_plan], "gpt-3.5-turbo")
-
-def generate_closure(podcast_plan, requirements):
-    GENERATE_CLOSURE_PROMPT = """You are a podcast speaker. You should write the closure of a podcast which skeleton will be provided by the user.
-    Keep it short and engaging. You don't have to talk about all topics, as your colleagues have already tackled them.
-    You should comply with this requirements: {podcast_requirements}"""
-    return generate_answer(GENERATE_CLOSURE_PROMPT.format(podcast_requirements=requirements), [podcast_plan], "gpt-3.5-turbo")
-
-
-
-
 def process_input_files(workspace, input_files=None):
     fs = gcsfs.GCSFileSystem(project=PROJECT_ID)
     if not input_files:
@@ -188,6 +194,18 @@ def process_input_files(workspace, input_files=None):
         summaries += [summarized_text]
         write_to_file(f"{workspace}/input_summaries/{filename}", summarized_text)
     return summaries
+
+def generate_introduction(podcast_plan, requirements):
+    GENERATE_INTRODUCTION_PROMPT = """You are a podcast speaker. You should write the introduction of a podcast which skeleton will be provided by the user.
+    Keep it really short and interesting. You don't have to include all data, just to present the podcast, your colleagues will do the different sections after you.
+    Keep it short. You should comply with this requirements: {podcast_requirements}"""
+    return generate_answer(GENERATE_INTRODUCTION_PROMPT.format(podcast_requirements=requirements), [podcast_plan], "gpt-3.5-turbo")
+
+def generate_closure(podcast_plan, requirements):
+    GENERATE_CLOSURE_PROMPT = """You are a podcast speaker. You should write the closure of a podcast which skeleton will be provided by the user.
+    Keep it short and engaging. You don't have to talk about all topics, as your colleagues have already tackled them.
+    You should comply with this requirements: {podcast_requirements}"""
+    return generate_answer(GENERATE_CLOSURE_PROMPT.format(podcast_requirements=requirements), [podcast_plan], "gpt-3.5-turbo")
 
 def generate_skeleton(workspace, requirements=None, summaries=None):
     GENERATE_STRUCTURE_PROMPT = """
@@ -217,95 +235,6 @@ def generate_skeleton(workspace, requirements=None, summaries=None):
     write_to_file(f'{workspace}/closure.txt', closure)
     return introduction, sections, closure
 
-def generate_sections(workspace, sections = None, requirements = None):
-    GENERATE_SECTION_PROMPT = """You are a speaker. You should write a section talking about some ideas and including some statements.
-    You should comply with this requirements: {podcast_requirements}"""
-    
-    if not sections:
-        sections = parse_sections(read_file(f'{workspace}/podcast_plan.txt'))
-    if not requirements:
-        requirements = read_file(f"{workspace}/requirements.txt")
-
-    full_sections = []
-    i = 0
-    for section in sections:
-        i+=1
-        generated_section = generate_answer(GENERATE_SECTION_PROMPT.format(podcast_requirements=requirements), [section], "gpt-3.5-turbo")
-        write_to_file(f'{workspace}/sections/section{i}.txt', generated_section)
-        full_sections += [generated_section]
-    return full_sections
-
-def generate_podcast(workspace, introduction, sections, closure):
-    fs = gcsfs.GCSFileSystem(project=PROJECT_ID)
-    if not introduction:
-        introduction = read_file(f'{workspace}/introduction.txt')
-    if not sections:
-        section_files = fs.glob(f'{workspace}/sections/')
-        sections = [read_file(file) for file in section_files]
-    if not closure:
-        closure = read_file(f'{workspace}/closure.txt')
-
-    def generate_audio(voice, text, output_file):
-        fs = gcsfs.GCSFileSystem(project=PROJECT_ID)
-        logging.info(f"Generating audio: {text}. With voice: {voice}")
-        #audio = generate(text=text, voice=voice, verify=False)
-        CHUNK_SIZE = 1024
-        url = f"https://api.elevenlabs.io/v1/text-to-speech/{voice}"
-
-        headers = {
-            "Accept": "audio/mpeg",
-            "Content-Type": "application/json",
-            "xi-api-key": ELEVENLABS_API_KEY
-        }
-
-        data = {
-            "text": text,
-            "model_id": "eleven_monolingual_v1",
-            "voice_settings": {
-                "stability": 0.5,
-                "similarity_boost": 0.5
-            }
-        }
-
-        response = requests.post(url, json=data, headers=headers, verify=False)
-        logging.info("Saving audio")
-        with fs.open(output_file, 'wb') as f:
-            for chunk in response.iter_content(chunk_size=CHUNK_SIZE):
-                if chunk:
-                    f.write(chunk)
-        return output_file  
-    
-    def combine_audios(audio_files, destiny_name):
-        fs = gcsfs.GCSFileSystem(project=PROJECT_ID)
-        combined_audio = b''
-        for file in audio_files:
-            with fs.open(file, 'rb') as audio_file:
-                combined_audio += audio_file.read()
-
-        with fs.open(destiny_name, 'wb') as destiny_file:
-            destiny_file.write(combined_audio)
-        return destiny_name
-
-
-    
-    introduction_audio = generate_audio(VOICE_INTRODUCTION, introduction, f'{workspace}/introduction.mp3')
-    section_audios = []
-    i = 0
-    for section in sections:
-        i += 1
-        section_audio = generate_audio(VOICE_SECTION, section, f'{workspace}/mp3_sections/section{i}.mp3')
-        section_audios += [section_audio]
-    closure_audio = generate_audio(VOICE_CLOSURE, closure, f'{workspace}/closure.mp3')
-    audios = [introduction_audio]
-    audios += [SINTONIA_AUDIO]
-    audios += section_audios
-    audios += [SINTONIA_AUDIO]
-    audios += [closure_audio]
-    logging.info("Combining audios")
-    podcast = combine_audios(audios, f'{workspace}/podcast.mp3')
-    return podcast
-
-
 
 @APP.route('/', methods=['GET', 'POST'])
 def unknown_operation():
@@ -324,23 +253,21 @@ def extend_sections():
         author = request_json["conversationId"].split(".")[0]
     user = request_json["user"] if request_json["user"]!="undefined" else author
     name = request_json["name"]
-    assigned_folder = f"{SPODKEST_FOLDER}/{name}"
     
-    # Generate sections
-    logging.info("Extending sections")
-    full_sections = generate_sections(assigned_folder)
+    publish_message(author=author, operation="extend", entity_id=name, payload=json.dumps(request_json))
 
     response = APP.response_class(
         response=json.dumps({"payload":{
-            "sections": full_sections
+            "user": user,
+            "id": name
             },
-            "responseMessage": f"Generated sections"}),
+            "responseMessage": f"Generating sections"}),
         status=200,
         mimetype='text/plain')
     return response
 
 @APP.route('/produce', methods=['POST', ])
-def produce_spodkest():
+def produce_spodkast():
     logging.info("Received request to produce podcast: {}".format(request))
     request_json = json.loads(request.data)
     author = request_json["author"]
@@ -348,23 +275,22 @@ def produce_spodkest():
         author = request_json["conversationId"].split(".")[0]
     user = request_json["user"] if request_json["user"]!="undefined" else author
     name = request_json["name"]
-    assigned_folder = f"{SPODKEST_FOLDER}/{name}"
     
     # Generate podcast
-    logging.info("Generating podcast")
-    podcast = generate_podcast(assigned_folder)
+    publish_message(author=author, operation="produce", entity_id=name, payload=json.dumps(request_json))
 
     response = APP.response_class(
         response=json.dumps({"payload":{
-            "url": podcast
+            "user": user,
+            "id": name
             },
-            "responseMessage": f"Podcast created and saved in {podcast}"}),
+            "responseMessage": f"Producing podcast"}),
         status=200,
         mimetype='text/plain')
     return response
 
 @APP.route('/create', methods=['POST', ])
-def create_spodkest():
+def create_spodkast():
     logging.info("Received request: {}".format(request))
     request_json = json.loads(request.data)
     author = request_json["author"]
@@ -372,12 +298,11 @@ def create_spodkest():
         author = request_json["conversationId"].split(".")[0]
     user = request_json["user"] if request_json["user"]!="undefined" else author
     name = request_json["name"]
-    slow = request_json["slow"]=="1"
     requirements = request_json["requirements"]
     files = request_json["inputFiles"].split(',')
 
     # Ensure workspace setup
-    assigned_folder = f"{SPODKEST_FOLDER}/{name}"
+    assigned_folder = SPODKAST_ROUTE.format(owner=user, id=name)
     logging.info(f"Ensuring {assigned_folder} setup")
     if requirements == "undefined":
         logging.info("Reading requirements")
@@ -413,36 +338,24 @@ def create_spodkest():
     logging.info("Generating skeleton")
     introduction, sections, closure = generate_skeleton(assigned_folder, requirements, summaries)
 
-    if slow:
-        response = APP.response_class(
-            response=json.dumps({"payload":{
-                "workspace": assigned_folder
-            },
-            "responseMessage": f"Creation started in {assigned_folder}"}),
-            status=200,
-            mimetype='text/plain')
-        return response
-    
-    # Generate sections
-    logging.info("Extending sections")
-    full_sections = generate_sections(assigned_folder, sections, requirements)
-
-    # Generate podcast
-    logging.info("Generating podcast")
-    podcast = generate_podcast(assigned_folder, introduction, full_sections, closure)
+    publish_message(author=author, operation="create", entity_id=name, payload=json.dumps(request_json))
 
     response = APP.response_class(
         response=json.dumps({"payload":{
-            "url": podcast
-            },
-            "responseMessage": f"Podcast created and saved in {podcast}"}),
+            "workspace": assigned_folder,
+            "id": name,
+            "skeleton": json.dumps({"introduction": introduction,
+                                    "sections": sections,
+                                    "closure": closure}),
+        },
+        "responseMessage": f"Creation of {name} started in {assigned_folder}"}),
         status=200,
         mimetype='text/plain')
     return response
     
     
 @functions_framework.http
-def actions_spodkest(request):
+def actions_spodkast(request):
     internal_ctx = APP.test_request_context(path=request.full_path,
                                             method=request.method)
     internal_ctx.request.data = request.data
