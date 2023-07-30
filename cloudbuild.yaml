@@ -16,14 +16,13 @@ steps:
   - deploy
   - actions-spodkast
   - --gen2
-  - --set-secrets=OPENAI_KEY=$_OPENAI_KEY
   - --region=europe-west1
   - --source=./actions_spodkast
   - --trigger-http
   - --runtime=python310
   - --entry-point=actions_spodkast
   - --service-account=spodkast-processor-cf@yggdrasil-ai-hermod.iam.gserviceaccount.com
-  - --set-env-vars=PROJECT_ID=$PROJECT_ID
+  - --set-env-vars=PROJECT_ID=$PROJECT_ID,EVENT_BUS=$_EVENT_BUS
   - --project=$PROJECT_ID
 - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
   args:
