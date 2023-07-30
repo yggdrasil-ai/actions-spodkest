@@ -315,6 +315,54 @@ def unknown_operation():
         mimetype='text/plain')
     return response
 
+@APP.route('/extend', methods=['POST', ])
+def generate_sections():
+    logging.info("Received request to extend sections: {}".format(request))
+    request_json = json.loads(request.data)
+    author = request_json["author"]
+    if request_json["author"] == "#spokeAgent#":
+        author = request_json["conversationId"].split(".")[0]
+    user = request_json["user"] if request_json["user"]!="undefined" else author
+    name = request_json["name"]
+    assigned_folder = f"{SPODKEST_FOLDER}/{name}"
+    
+    # Generate sections
+    logging.info("Extending sections")
+    full_sections = generate_sections(assigned_folder)
+
+    response = APP.response_class(
+        response=json.dumps({"payload":{
+            "sections": full_sections
+            },
+            "responseMessage": f"Generated sections"}),
+        status=200,
+        mimetype='text/plain')
+    return response
+
+@APP.route('/produce', methods=['POST', ])
+def produce_spodkest():
+    logging.info("Received request to produce podcast: {}".format(request))
+    request_json = json.loads(request.data)
+    author = request_json["author"]
+    if request_json["author"] == "#spokeAgent#":
+        author = request_json["conversationId"].split(".")[0]
+    user = request_json["user"] if request_json["user"]!="undefined" else author
+    name = request_json["name"]
+    assigned_folder = f"{SPODKEST_FOLDER}/{name}"
+    
+    # Generate podcast
+    logging.info("Generating podcast")
+    podcast = generate_podcast(assigned_folder)
+
+    response = APP.response_class(
+        response=json.dumps({"payload":{
+            "url": podcast
+            },
+            "responseMessage": f"Podcast created and saved in {podcast}"}),
+        status=200,
+        mimetype='text/plain')
+    return response
+
 @APP.route('/create', methods=['POST', ])
 def create_spodkest():
     logging.info("Received request: {}".format(request))
@@ -324,6 +372,7 @@ def create_spodkest():
         author = request_json["conversationId"].split(".")[0]
     user = request_json["user"] if request_json["user"]!="undefined" else author
     name = request_json["name"]
+    slow = request_json["slow"]=="1"
     requirements = request_json["requirements"]
     files = request_json["inputFiles"].split(',')
 
@@ -363,6 +412,16 @@ def create_spodkest():
     # Generate podcast skeleton
     logging.info("Generating skeleton")
     introduction, sections, closure = generate_skeleton(assigned_folder, requirements, summaries)
+
+    if slow:
+        response = APP.response_class(
+            response=json.dumps({"payload":{
+                "workspace": assigned_folder
+            },
+            "responseMessage": f"Creation started in {assigned_folder}"}),
+            status=200,
+            mimetype='text/plain')
+        return response
     
     # Generate sections
     logging.info("Extending sections")

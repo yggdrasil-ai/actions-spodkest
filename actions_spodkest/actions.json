@@ -3,7 +3,7 @@
         "description": {
             "EN": "Create podcast from some pdf files"
         },
-        "category": "git",
+        "category": "advancedActions",
         "args": {
             "author": {
                 "description": {
@@ -29,6 +29,14 @@
                 "required": true,
                 "default": "undefined"
             },
+            "slow": {
+                "description": {
+                    "EN": "1 to go step by step, 0 to instantly generate podcast"
+                },
+                "type": "string",
+                "required": false,
+                "default": "0"
+            },
             "requirements": {
                 "description": {
                     "EN": "Podcast specifications"
@@ -50,7 +58,13 @@
             "payload": {
                 "url": {
                     "description": {
-                        "EN": "Url of the mp3 file containing the podcast"
+                        "EN": "Url of the mp3 file containing the podcast. Returned only in fast mode"
+                    },
+                    "type": "string"
+                },
+                "workspace": {
+                    "description": {
+                        "EN": "Workspace url where all generated resources are stored. Returned only in slow mode"
                     },
                     "type": "string"
                 }
@@ -63,5 +77,103 @@
             }
         },
         "endpoint": "https://actions-spodkest-ai32xjq4va-ew.a.run.app/create"
+    },
+    "extend-spodkest": {
+        "description": {
+            "EN": "Generate sections for an already existing podcast. MUST BE EXECUTED AFTER create-spodkest WITH slow=1."
+        },
+        "category": "advancedActions",
+        "args": {
+            "author": {
+                "description": {
+                    "EN": "The author of the command"
+                },
+                "type": "string",
+                "required": true,
+                "default": "undefined"
+            },
+            "user": {
+                "description": {
+                    "EN": "Owner of the podcast"
+                },
+                "type": "string",
+                "required": false,
+                "default": "undefined"
+            },
+            "name": {
+                "description": {
+                    "EN": "Podcast name, use only letters and numbers"
+                },
+                "type": "string",
+                "required": true,
+                "default": "undefined"
+            }
+        },
+        "response": {
+            "payload": {
+                "sections": {
+                    "description": {
+                        "EN": "List of generated sections"
+                    },
+                    "type": "array"
+                }
+            },
+            "responseMessage": {
+                "description": {
+                    "EN": "Message describing action result"
+                },
+                "type": "string"
+            }
+        },
+        "endpoint": "https://actions-spodkest-ai32xjq4va-ew.a.run.app/extend"
+    },
+    "produce-spodkest": {
+        "description": {
+            "EN": "Produce an already generated podcast. MUST BE EXECUTED AFTER extend-spodkest"
+        },
+        "category": "advancedActions",
+        "args": {
+            "author": {
+                "description": {
+                    "EN": "The author of the command"
+                },
+                "type": "string",
+                "required": true,
+                "default": "undefined"
+            },
+            "user": {
+                "description": {
+                    "EN": "Owner of the podcast"
+                },
+                "type": "string",
+                "required": false,
+                "default": "undefined"
+            },
+            "name": {
+                "description": {
+                    "EN": "Podcast name, use only letters and numbers"
+                },
+                "type": "string",
+                "required": true,
+                "default": "undefined"
+            }
+        },
+        "response": {
+            "payload": {
+                "url": {
+                    "description": {
+                        "EN": "Url of the mp3 file containing the podcast. Returned only in fast mode"
+                    },
+                    "type": "string"
+                }
+            },
+            "responseMessage": {
+                "description": {
+                    "EN": "Message describing action result"
+                },
+                "type": "string"
+            }
+        },
+        "endpoint": "https://actions-spodkest-ai32xjq4va-ew.a.run.app/produce"
     }
 }
