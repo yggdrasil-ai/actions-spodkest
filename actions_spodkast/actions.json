@@ -67,12 +67,6 @@
                         "EN": "Id of the spodkast created"
                     },
                     "type": "string"
-                },
-                "skeleton": {
-                    "description": {
-                        "EN": "JSON with the introduction, sections and closure"
-                    },
-                    "type": "string"
                 }
             },
             "responseMessage": {
