@@ -250,7 +250,7 @@ def generate_sections(workspace, sections = None, requirements = None):
         full_sections += [generated_section]
     return full_sections
 
-def generate_podcast(workspace, introduction, sections, closure):
+def generate_podcast(workspace, introduction=None, sections=None, closure=None):
     fs = gcsfs.GCSFileSystem(project=PROJECT_ID)
     if not introduction:
         introduction = read_file(f'{workspace}/introduction.txt')
