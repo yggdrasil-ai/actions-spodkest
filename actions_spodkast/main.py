@@ -132,7 +132,7 @@ def create_spodkast():
     user = request_json["user"] if request_json["user"]!="undefined" else author
     name = request_json["name"]
     requirements = request_json["requirements"]
-    files = request_json["inputFiles"].split(',')
+    files = [file.strip() for file in request_json["inputFiles"].split(',') if file.strip()!='']
 
     # Ensure workspace setup
     assigned_folder = SPODKAST_ROUTE.format(owner=user, id=name)
