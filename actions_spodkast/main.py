@@ -122,6 +122,29 @@ def produce_spodkast():
         mimetype='text/plain')
     return response
 
+@APP.route('/export', methods=['POST', ])
+def export_spodkast():
+    logging.info("Received request to export podcast: {}".format(request))
+    request_json = json.loads(request.data)
+    author = request_json["author"]
+    if request_json["author"] == "#spokeAgent#":
+        author = request_json["conversationId"].split(".")[0]
+    user = request_json["user"] if request_json["user"]!="undefined" else author
+    name = request_json["name"]
+    
+    # Generate podcast
+    publish_message(author=author, operation="export", entity_id=name, payload=json.dumps(request_json))
+
+    response = APP.response_class(
+        response=json.dumps({"payload":{
+            "user": user,
+            "id": name
+            },
+            "responseMessage": f"Exporting podcast"}),
+        status=200,
+        mimetype='text/plain')
+    return response
+
 @APP.route('/create', methods=['POST', ])
 def create_spodkast():
     logging.info("Received request: {}".format(request))
@@ -132,6 +155,7 @@ def create_spodkast():
     user = request_json["user"] if request_json["user"]!="undefined" else author
     name = request_json["name"]
     requirements = request_json["requirements"]
+    notification_mail = request["notificationMail"]
     files = [file.strip() for file in request_json["inputFiles"].split(',') if file.strip()!='']
 
     # Ensure workspace setup
@@ -143,6 +167,9 @@ def create_spodkast():
     else:
         logging.info("Writing requirements")
         write_to_file(f"{assigned_folder}/requirements.txt", requirements)
+    if notification_mail!="undefined":
+        logging.info("Writing notification mail")
+        write_to_file(f"{assigned_folder}/mail.txt", notification_mail)
     owned_files = []
     if len(files) > 0 and files[0]!="undefined":
         for file in [x.strip() for x in files]:

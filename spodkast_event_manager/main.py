@@ -12,6 +12,9 @@ import gcsfs
 from io import BytesIO
 from pdfminer.high_level import extract_text
 from nltk.tokenize import word_tokenize
+import urllib
+import google.auth.transport.requests
+import google.oauth2.id_token
 import nltk
 nltk.download('punkt')
 
@@ -26,9 +29,12 @@ ELEVENLABS_API_KEY = os.environ.get('ELEVENLABS_KEY')
 VOICE_INTRODUCTION = os.environ.get('VOICE_INTRODUCTION')
 VOICE_SECTION = os.environ.get('VOICE_SECTION')
 VOICE_CLOSURE = os.environ.get('VOICE_CLOSURE')
+CONVERSATIONAL_URL = os.environ.get('CONVERSATIONAL_URL')
 SINTONIA_AUDIO = "gs://yggdrasil-ai-hermod-public/sintonia.mp3"
 ENTITY = "spodkast"
 SPODKAST_ROUTE = "gs://yggdrasil-ai-hermod-spodkast/{owner}/{id}"
+EXPORT_ROUTE = "yggdrasil-ai-hermod-public/spodkast/{owner}/{id}"
+USER = "pdftopodcastmanager"
 
 def publish_message(author:str, operation:str, entity_id:str, payload:str):
     """
@@ -53,6 +59,25 @@ def publish_message(author:str, operation:str, entity_id:str, payload:str):
     publish_future = publisher.publish(topic_path,
                                         data=message_json)
     publish_future.result()
+
+def _make_authorized_post_request(endpoint, payload):
+    """
+    make_authorized_get_request makes a POST request to the specified HTTP endpoint
+    by authenticating with the ID token obtained from the google-auth client library
+    using the specified audience value.
+    """
+
+    req = urllib.request.Request(endpoint)
+
+    auth_req = google.auth.transport.requests.Request()
+    id_token = google.oauth2.id_token.fetch_id_token(auth_req, endpoint)
+
+
+    req.data=payload
+    req.add_header("Authorization", f"Bearer {id_token}")
+    req.add_header("Content-Type", "application/json")
+    response = urllib.request.urlopen(req)
+    return json.load(response)
 
 def generate_answer(prompt, message_list, model, attempt=0):
         """
@@ -96,6 +121,11 @@ def read_bytes(file):
 def write_to_file(file, content):
     fs = gcsfs.GCSFileSystem(project=PROJECT_ID)
     with fs.open(file, "w") as file_:
+        file_.write(content)
+
+def write_bytes(file, content):
+    fs = gcsfs.GCSFileSystem(project=PROJECT_ID)
+    with fs.open(file, mode='wb') as file_:
         file_.write(content)
 
 def parse_sections(text):
@@ -318,6 +348,28 @@ def generate_podcast(workspace, introduction=None, sections=None, closure=None):
     podcast = combine_audios(audios, f'{workspace}/podcast.mp3')
     return podcast
 
+def _export_spodkast(author, spodkast_id, payload):
+    logging.info(f"Received request from {author} to export podcast {spodkast_id}: {payload}")
+    if author == "#spokeAgent":
+        author = payload["conversationId"].split('.')[0]
+    user = payload["user"] if payload["user"]!="undefined" else author
+    assigned_folder = SPODKAST_ROUTE.format(owner=user, id=spodkast_id)
+    export_route = EXPORT_ROUTE.format(owner=user, id=spodkast_id)
+    destiny_folder = "gs://"+export_route
+    mail = read_file(f"{assigned_folder}/mail.txt")
+    podcast = read_bytes(f"{assigned_folder}/podcast.mp3")
+    write_bytes(f"{destiny_folder}/podcast.mp3", podcast)
+    message = f"""#c#send-mail#|#author={USER}#|#body=Your podcast have been produced, you can download it using this link: https://{export_route}/podcast.mp3#|#to={mail}#|#subject=Produced podcast from your PDF#|#from=PDFtoPodcast#c#"""
+    payload = json.dumps({
+        'author': USER,
+        'role': 'user',
+        'conversationId': "temp",
+        'message': message,
+    })
+    _make_authorized_post_request(CONVERSATIONAL_URL, payload)
+
+
+
 def _produce_spodkast(author, spodkast_id, payload):
     logging.info(f"Received request from {author} to produce podcast {spodkast_id}: {payload}")
     if author == "#spokeAgent#":
@@ -327,7 +379,8 @@ def _produce_spodkast(author, spodkast_id, payload):
     
     # Generate podcast
     logging.info("Generating podcast")
-    podcast = generate_podcast(assigned_folder)
+    generate_podcast(assigned_folder)
+    publish_message(author=author, operation="export", entity_id=spodkast_id, payload=json.dumps(payload))
 
 def _extend_spodkast(author, spodkast_id, payload):
     logging.info(f"Received request from {author} to extend sections for {spodkast_id}:{payload}")
@@ -384,3 +437,7 @@ def spodkast_event_manager(cloud_event):
             _produce_spodkast(event["author"],
                               event['entityId'],
                               payload=json.loads(event['payload']))
+        elif event['operation']=="export":
+            _export_spodkast(event["author"],
+                              event["entityId"],
+                              payload=json.loads(event['payload'])) 

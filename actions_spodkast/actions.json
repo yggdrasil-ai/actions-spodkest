@@ -37,6 +37,14 @@
                 "required": false,
                 "default": "0"
             },
+            "notificationMail": {
+                "description": {
+                    "EN": "Mail to send podcast to when produced"
+                },
+                "type": "string",
+                "required": true,
+                "default": "undefined"
+            },
             "requirements": {
                 "description": {
                     "EN": "Podcast specifications"
@@ -195,5 +203,60 @@
             }
         },
         "endpoint": "https://actions-spodkast-ai32xjq4va-ew.a.run.app/produce"
+    },
+    "export-spodkast": {
+        "description": {
+            "EN": "Exports an already produced podcast. MUST BE EXECUTED AFTER produce-spodkast. Needs a valid notification mail when the podcast was created"
+        },
+        "category": "advancedActions",
+        "args": {
+            "author": {
+                "description": {
+                    "EN": "The author of the command"
+                },
+                "type": "string",
+                "required": true,
+                "default": "undefined"
+            },
+            "user": {
+                "description": {
+                    "EN": "Owner of the podcast"
+                },
+                "type": "string",
+                "required": false,
+                "default": "undefined"
+            },
+            "name": {
+                "description": {
+                    "EN": "Podcast name, use only letters and numbers"
+                },
+                "type": "string",
+                "required": true,
+                "default": "undefined"
+            }
+        },
+        "response": {
+            "payload": {
+                "workspace": {
+                    "description": {
+                        "EN": "Workspace url where all generated resources are stored"
+                    },
+                    "type": "string"
+                },
+                "id": {
+                    "description": {
+                        "EN": "Id of the spodkast created"
+                    },
+                    "type": "string"
+                }
+            },
+            "responseMessage": {
+                "description": {
+                    "EN": "Message describing action result"
+                },
+                "type": "string"
+            }
+        },
+        "endpoint": "https://actions-spodkast-ai32xjq4va-ew.a.run.app/export"
     }
 }
