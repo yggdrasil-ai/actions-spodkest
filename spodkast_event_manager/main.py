@@ -360,13 +360,13 @@ def _export_spodkast(author, spodkast_id, payload):
     podcast = read_bytes(f"{assigned_folder}/podcast.mp3")
     write_bytes(f"{destiny_folder}/podcast.mp3", podcast)
     message = f"""#c#send-mail#|#author={USER}#|#body=Your podcast have been produced, you can download it using this link: https://storage.googleapis.com/{export_route}/podcast.mp3#|#to={mail}#|#subject=Produced podcast from your PDF#|#from=PDFtoPodcast#c#"""
-    payload = json.dumps({
+    messagePayload = json.dumps({
         'author': USER,
         'role': 'user',
         'conversationId': "temp",
         'message': message,
-    })
-    _make_authorized_post_request(CONVERSATIONAL_URL, payload)
+    }).encode("utf-8")
+    _make_authorized_post_request(CONVERSATIONAL_URL, messagePayload)
 
 
 
